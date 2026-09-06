@@ -5,7 +5,7 @@ Every `outlook_*` tool, with parameters, defaults, return shape, and notes on ch
 ## Contents
 
 - [Mail](#mail) — list_mails, search_mails, get_mail, send_mail, reply_mail, forward_mail, move_mail, delete_mail, mark_mail, save_attachments
-- [Folders](#folders) — list_folders, create_folder
+- [Folders](#folders) — list_folders, list_stores, create_folder
 - [Calendar](#calendar) — list_events, get_event, create_event, update_event, delete_event, respond_event
 - [Contacts](#contacts) — list_contacts, search_contacts, get_contact, resolve_name
 - [Tasks](#tasks) — list_tasks, create_task, complete_task
@@ -85,10 +85,11 @@ Compose and send a new mail, or save it to Drafts. Has external side effect.
 | `attachments`  | list[str] | `null`    | Absolute paths under user profile. |
 | `importance`   | enum      | `"normal"`| `low` / `normal` / `high`. |
 | `save_only`    | bool      | `false`   | **Save to Drafts instead of sending.** |
+| `account`      | string    | `null`    | SMTP address or display name of the mailbox to send from (sets `SendUsingAccount`). Use for multi-mailbox sends, e.g. `"alice@example.com"`. `null` = primary account. |
 
-**Returns** (sent): `{ status: "sent", to, cc, bcc, subject }`. (Drafts): `{ status: "saved_to_drafts", entry_id, subject }`.
+**Returns** (sent): `{ status: "sent", to, cc, bcc, subject, account }`. (Drafts): `{ status: "saved_to_drafts", entry_id, subject, account }`.
 
-Always confirm the recipient list and subject with the user before calling this tool unless they have explicitly authorized you to send.
+Always confirm the recipient list and subject with the user before calling this tool unless they have explicitly authorized you to send. When sending from a non-default `account`, state which mailbox you're sending from.
 
 ### `outlook_reply_mail`
 
@@ -177,11 +178,21 @@ Walk the folder tree under a root.
 
 | Param            | Type    | Default | Notes |
 | ---------------- | ------- | ------- | ----- |
-| `root`           | string  | `null`  | Folder to start from. Default = the default mailbox root. |
+| `root`           | string  | `null`  | Folder to start from. **Default = walk every store/mailbox in the profile**, not just the default one. Pass a store name (e.g. `alice@example.com`) or a folder path to limit to one. |
 | `max_depth`      | int 1–10| `4`     | How deep to walk. |
 | `response_format`| str     | `markdown` | |
 
-**Returns**: `{ count, items: [{name, path, item_count, unread_count, default_item_type}, ...] }`. The `path` strings are exactly what you pass back as a `folder` parameter elsewhere.
+**Returns**: `{ count, items: [{name, path, item_count, unread_count, default_item_type}, ...] }`. The `path` strings are exactly what you pass back as a `folder` parameter elsewhere. With the default `root=null` the top-level `name`/`path` of each block is a store (mailbox) display name — use it as the first segment when addressing folders in that mailbox.
+
+### `outlook_list_stores`
+
+List every message store (mailbox / PST) in the Outlook profile. Read-only.
+
+| Param            | Type    | Default | Notes |
+| ---------------- | ------- | ------- | ----- |
+| `response_format`| str     | `markdown` | |
+
+**Returns**: `{ count, items: [{display_name, store_id, is_default, is_exchange, is_data_file, root_name, item_count, unread_count}, ...] }`. `display_name` is usually the mailbox's email address and is what you use as the first path segment in folder references (e.g. `alice@example.com/Inbox`). Use this to discover available mailboxes before `list_folders` / `list_mails` when the user has more than one account.
 
 ### `outlook_create_folder`
 

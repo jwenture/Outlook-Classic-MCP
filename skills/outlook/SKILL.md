@@ -26,7 +26,7 @@ All tools are prefixed `outlook_`. Memorize the categories; consult `references/
 | Category       | Tools |
 | -------------- | ----- |
 | Mail           | `list_mails`, `search_mails`, `get_mail`, `send_mail`, `reply_mail`, `forward_mail`, `move_mail`, `delete_mail`, `mark_mail`, `save_attachments` |
-| Folders        | `list_folders`, `create_folder` |
+| Folders        | `list_folders`, `list_stores`, `create_folder` |
 | Calendar       | `list_events`, `get_event`, `create_event`, `update_event`, `delete_event`, `respond_event` |
 | Contacts       | `list_contacts`, `search_contacts` (incl. org directory), `get_contact`, `resolve_name` |
 | Tasks          | `list_tasks`, `create_task`, `complete_task` |
@@ -45,9 +45,11 @@ Any parameter named `folder`, `target_folder`, `parent`, or `root` accepts:
 
 - A **well-known name** (case-insensitive): `inbox`, `sent`, `drafts`, `deleted` (alias `trash`), `outbox`, `junk` (alias `spam`), `calendar`, `contacts`, `tasks`, `notes`.
 - A **slash path** under the default mailbox: `Inbox/Projects/Acme`.
-- A **store-qualified path** when the user has more than one mailbox or PST: `Mailbox - you@example.com/Inbox/Projects/Acme`.
+- A **store-qualified path** when the user has more than one mailbox or PST: `you@example.com/Inbox/Projects/Acme` (the store name is usually the mailbox's email address, e.g. `alice@example.com/Inbox`).
 
-When unsure of the exact path, call `outlook_list_folders` first and use the path string it returns verbatim.
+**Multiple mailboxes.** `outlook_list_folders` (no `root`) enumerates **every** store in the profile by default, so a bare call shows all mailboxes and their folder trees. To list just the store/mailbox names (display name, default flag, Exchange/data-file flags, root counts), call `outlook_list_stores`. Use the store `display_name` as the first path segment when the user wants to work in a non-default mailbox. To **send from** a specific mailbox, pass `account="alice@example.com"` to `send_mail` (sets the mail's `SendUsingAccount`); `reply_mail`/`forward_mail` already use the original mail's account automatically.
+
+When unsure of the exact path, call `outlook_list_folders` (or `outlook_list_stores` to see just the mailbox names) first and use the path string it returns verbatim.
 
 ### Item identity: `EntryID`
 
@@ -89,7 +91,7 @@ Most read tools accept `response_format='markdown'` (default; pretty for the use
 ### Read tools are free; write tools have side effects
 
 Read freely:
-`list_mails`, `search_mails`, `get_mail`, `list_folders`, `list_events`, `get_event`, `list_contacts`, `search_contacts`, `get_contact`, `resolve_name`, `list_tasks`, `list_categories`, `list_rules`, `get_out_of_office`, `whoami`.
+`list_mails`, `search_mails`, `get_mail`, `list_folders`, `list_stores`, `list_events`, `get_event`, `list_contacts`, `search_contacts`, `get_contact`, `resolve_name`, `list_tasks`, `list_categories`, `list_rules`, `get_out_of_office`, `whoami`.
 
 Confirm before calling (these change shared state or send messages):
 `send_mail`, `reply_mail`, `forward_mail`, `delete_mail`, `move_mail`, `mark_mail`, `save_attachments`, `create_event` (especially with attendees — that sends a meeting invite immediately), `update_event`, `delete_event`, `respond_event` (with `send_response=true`), `create_folder`, `create_task`, `complete_task`, `set_category`, `toggle_rule`.
