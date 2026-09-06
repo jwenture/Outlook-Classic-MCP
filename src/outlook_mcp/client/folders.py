@@ -85,12 +85,32 @@ def get_item_by_id(namespace: Any, entry_id: str, store_id: str | None = None) -
         ) from exc
 
 
-def list_folders(outlook: Any, namespace: Any, *, root: str | None = None, max_depth: int = 4) -> list[dict[str, Any]]:
-    if root:
-        start = resolve_folder(namespace, root)
-    else:
-        start = namespace.GetDefaultFolder(OL_FOLDER_INBOX).Parent
+def list_stores(outlook: Any, namespace: Any) -> list[dict[str, Any]]:
+    """Enumerate all message stores (mailboxes) in the Outlook profile."""
+    default_store_id = _safe_get(namespace.DefaultStore, "StoreID")
+    stores: list[dict[str, Any]] = []
+    for store in namespace.Stores:
+        try:
+            root = store.GetRootFolder()
+        except Exception:
+            root = None
+        items_obj = _safe_get(root, "Items") if root else None
+        stores.append(
+            {
+                "display_name": _safe_get(store, "DisplayName"),
+                "store_id": _safe_get(store, "StoreID"),
+                "is_default": _safe_get(store, "StoreID") == default_store_id,
+                "is_exchange": bool(_safe_get(store, "IsExchange", False)),
+                "is_data_file": bool(_safe_get(store, "IsDataFileStore", False)),
+                "root_name": _safe_get(root, "Name") if root else None,
+                "item_count": items_obj.Count if items_obj else 0,
+                "unread_count": _safe_get(root, "UnReadItemCount", 0) if root else 0,
+            }
+        )
+    return stores
 
+
+def list_folders(outlook: Any, namespace: Any, *, root: str | None = None, max_depth: int = 4) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
 
     def walk(folder: Any, path: str, depth: int) -> None:
@@ -109,7 +129,18 @@ def list_folders(outlook: Any, namespace: Any, *, root: str | None = None, max_d
         for sub in folder.Folders:
             walk(sub, f"{path}/{sub.Name}", depth + 1)
 
-    walk(start, start.Name, 0)
+    if root:
+        starts = [resolve_folder(namespace, root)]
+    else:
+        starts = []
+        for store in namespace.Stores:
+            try:
+                starts.append(store.GetRootFolder())
+            except Exception:
+                continue
+
+    for start in starts:
+        walk(start, start.Name, 0)
     return out
 
 

@@ -261,6 +261,25 @@ def get_mail(
     )
 
 
+def _resolve_account(outlook: Any, account: str) -> Any:
+    """Find an Outlook Account by SMTP address or display name (case-insensitive)."""
+    target = account.strip().lower()
+    available: list[str] = []
+    for acct in outlook.Session.Accounts:
+        smtp = _safe_get(acct, "SmtpAddress")
+        disp = _safe_get(acct, "DisplayName")
+        if smtp:
+            available.append(smtp)
+        elif disp:
+            available.append(disp)
+        if (smtp and smtp.lower() == target) or (disp and disp.lower() == target):
+            return acct
+    raise OutlookError(
+        f"No Outlook account matches '{account}'. "
+        f"Available: {', '.join(available) or 'none'}."
+    )
+
+
 def send_mail(
     outlook: Any,
     namespace: Any,
@@ -274,8 +293,11 @@ def send_mail(
     attachments: list[str] | None = None,
     importance: str = "normal",
     save_only: bool = False,
+    account: str | None = None,
 ) -> dict[str, Any]:
     mail = outlook.CreateItem(OL_MAIL_ITEM)
+    if account:
+        mail.SendUsingAccount = _resolve_account(outlook, account)
     mail.To = "; ".join(to)
     if cc:
         mail.CC = "; ".join(cc)
@@ -299,6 +321,7 @@ def send_mail(
             "status": "saved_to_drafts",
             "entry_id": mail.EntryID,
             "subject": mail.Subject,
+            "account": account,
         }
 
     mail.Send()
@@ -308,6 +331,7 @@ def send_mail(
         "cc": cc or [],
         "bcc": bcc or [],
         "subject": subject,
+        "account": account,
     }
 
 
