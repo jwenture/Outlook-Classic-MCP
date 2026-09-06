@@ -37,6 +37,25 @@ def register(mcp, bridge) -> None:
         return format_response(payload, response_format)
 
     @mcp.tool(
+        name="outlook_list_stores",
+        annotations={
+            "title": "List Outlook stores (mailboxes)",
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": False,
+        },
+    )
+    @safe_call
+    async def outlook_list_stores(
+        response_format: Annotated[str, Field(description="'markdown' or 'json'.")] = "markdown",
+    ) -> str:
+        """List all message stores (mailboxes) in the Outlook profile."""
+        items = await bridge.call(folders_client.list_stores)
+        payload = {"count": len(items), "items": items}
+        return format_response(payload, response_format)
+
+    @mcp.tool(
         name="outlook_create_folder",
         annotations={
             "title": "Create Outlook folder",
