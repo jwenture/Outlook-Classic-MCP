@@ -11,6 +11,7 @@ from outlook_mcp.constants import (
     IMPORTANCE_MAP,
     OL_CLASS_MAIL,
     OL_CLASS_MEETING_REQUEST,
+    OL_FOLDER_DRAFTS,
     OL_FORMAT_HTML,
     OL_FORMAT_PLAIN,
     OL_IMPORTANCE_NORMAL,
@@ -295,9 +296,31 @@ def send_mail(
     save_only: bool = False,
     account: str | None = None,
 ) -> dict[str, Any]:
-    mail = outlook.CreateItem(OL_MAIL_ITEM)
-    if account:
-        mail.SendUsingAccount = _resolve_account(outlook, account)
+    # When sending from a non-default account, create the mail item in
+    # that account's own store (its Drafts folder). An item created in a
+    # store inherently belongs to that account, so Send() routes through
+    # it and the sent item lands in that account's Sent Items. This is
+    # the reliable method under win32com's late-bound Dispatch, where
+    # assigning the object-valued SendUsingAccount property can silently
+    # no-op (PROPERTYPUT vs PROPERTYPUTREF).
+    acct = _resolve_account(outlook, account) if account else None
+    if acct is not None:
+        mail = None
+        try:
+            store = _safe_get(acct, "DeliveryStore")
+            drafts = store.GetDefaultFolder(OL_FOLDER_DRAFTS) if store else None
+            if drafts is not None:
+                mail = drafts.Items.Add(OL_MAIL_ITEM)
+        except Exception:
+            mail = None
+        if mail is None:
+            mail = outlook.CreateItem(OL_MAIL_ITEM)
+        try:
+            mail.SendUsingAccount = acct
+        except Exception:
+            pass
+    else:
+        mail = outlook.CreateItem(OL_MAIL_ITEM)
     mail.To = "; ".join(to)
     if cc:
         mail.CC = "; ".join(cc)
